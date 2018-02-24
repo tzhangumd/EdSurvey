@@ -1,0 +1,113 @@
+---
+title: "Trend Analysis"
+author: "Ting Zhang"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+In large-scale eductional studies such as NAEP, TIMSS, and PISA, trend analysis is often employed to study the change over time with resepct to a statistic (e.g., mean scores, achievement level percentages, percentiles, and student group percentages)in a group selected to represent a larger population. 
+
+In this vigette, we will show you how to conduct trend analysis, including:  
+    * a comparison of a student group across year;  
+    * a gap of two student groups across year;  
+  
+
+First of all, data sets for multiple years are read in. For illustration purpose, we use TIMSS 2015, 2011, and 2007 USA data sets for 4th grade students. 
+```{r echo=FALSE, results='hide', message=FALSE}
+library(EdSurvey)
+```
+
+##Download TIMSS data
+This can be done using the `EdSurvey`'s `downloadTIMSS`function, and data will be downloaded to a diractory that the user specifies; for example, "C:/EdSurvey/Data". Please note this function only works for TIMSS 2003, 2007, 2013, and 2015 data. One can also mannually download desirable data from the IEA Data Repository or timssandpirls.bc.edu. 
+```{r eval = FALSE}
+downloadTIMSS(years = c(2007, 2011, 2015), root =     "C:/EdSurvey/Data", cache = TRUE)
+```
+
+##Read in Data
+Read in the TIMSS 2007, 2011 and 2015 data using `EdSurvey`'s `readTIMSS` function, and assign them names, such as, TIMMS07, TIMSS11, and TIMSS15.
+```{r warning=FALSE, results='hide'}
+TIMSS07<- readTIMSS("C:/EdSurvey/Data/TIMSSTIMSS2007",       countries = c("usa"), gradeLvl = "4")
+TIMSS11<- readTIMSS("C:/EdSurvey/Data/TIMSSTIMSS2011", countries = c("usa"), gradeLvl = "4")
+TIMSS15<- readTIMSS("C:/EdSurvey/Data/TIMSSTIMSS2015", countries = c("usa"), gradeLvl = "4")
+```
+For trend analysis, we can use the 'edsurvey.data.frame.list`funciton to combine a series of data frome each year into a dataframe list, and assign a label to each year.
+
+```{r}
+
+Trend <- edsurvey.data.frame.list(list(TIMSS15, TIMSS11, TIMSS07),
+                                 labels=c("TIMSS 2015", "TIMSS 2011",
+                                          "TIMSS 2007"))
+```
+
+The `edsurvey.data.frame.list`can also be used to combine geograhic data, if one wants to perform analysis across jurisdition or country (e.g., compare gender gap across country). Please see the `EdSurvey` [`gap`] fuction (a link to EdSurvey Gap vignette section) for more details.
+
+##Comparison of a Student Group Across Year
+
+The following example shows comparisons of students' TIMSS mathematic achievement across year using `EdSurvey`'s `gap`function. We can change the scale 'mmat' (which represent the TIMSS mathematics scale) to a subscale or another subject scale. Use `showPlausibleValues` or print the edsurvey.data.frame to find out the available scales that can be used in each dataset.
+
+```{r results='markup'}
+gapResult <- gap(variable = 'mmat', data = Trend) 
+gapResult$results
+```
+
+To view the results in a a spreadsheet-style data viewer in R or R studio, use the `View`function.
+```{r}
+View(gapResult$results)
+```
+
+In `gapResult$results`:
+
+* the difference in mean math scores *between* the `TIMSS15` and `TIMSS11` (`diffAA`) is `-1.493707` with a standard error of `2.877792`, the degree of freedom (`dofAA`) of `221.5007` and a *p*value (`diffAApValue`) of `0.604246825`.
+* the difference in mean math scores *between* the `TIMSS15` and `TIMSS07` (`diffAA`) is `10.146526` with a standard error of `0 3.312999`, the degree of freedom (`dofAA`) of `194.6327` and a *p*value (`diffAApValue`) of `0.002504432`.
+
+
+By default, the above example treats the first data frame (i.e.TIMSS15) as the reference dataset. If we want to change the reference to another dataset, we can use the `referenceDataIndex` argument. For example, setting `referenceDataIndex`argument = 2 to make the second dataset as the reference data.
+
+```{r}
+gapResult2 <- gap(variable = 'mmat', data = Trend, referenceDataIndex = 2) 
+gapResult2$results
+```
+
+##Gap of Student Groups Across Year
+
+This example demonstrates how to compare gender gap with respect to TIMSS Mathematic achievement across year. `itsex`, the variable that we selected, has its labels altered slightly across year. Both TIMSS 07 and 11 used "GILR" and "BOY", but TIMSS 15 used "FEMALE" "MALE". The`itsex %in% c("GIRL","FEMALE"), itsex%in%c("BOY","MALE")`argument deals with the inconsistent labels.
+
+```{r }
+gapResult3 <- gap(variable = 'mmat', data = Trend, 
+                  itsex %in% c("GIRL","FEMALE"), itsex%in%c("BOY","MALE"))
+
+gapResult3$results
+
+```
+
+
+In trend data, we may sometimes encourter variables named sligthly different across year. For example, the _Speak Language of Test at Home_ variale in TIMSS was named as "as4golan" in year 07, but as "asbg03" in year 11 and 15. The following example demonstrates how to rename the variable, and update the `edsurvey.data.frame.list`. 
+
+```{r}
+# Rename variable and save the revised data to a new data.frame
+TIMSS07a<-rename.sdf(TIMSS07,"as4golan","asbg03")
+
+# Combine TIMSS data into a new list 
+Trend2 <- edsurvey.data.frame.list(list(TIMSS15, TIMSS11, TIMSS07a), 
+                                   labels=c("TIMSS 2015", "TIMSS 2011", "TIMSS 2007"))
+
+```
+
+Since the variable has multiple levels, one may want to recode the levels befor the gap analysis.
+```{r eval = FALSE}
+
+# Recode the variable and save the revised data to the existing list
+Trend2 <- recode.sdf(Trend2, recode = list(asbg03 = list(from = c("ALWAYS","ALMOST ALWAYS", "ALWAYS OR ALMOST ALWAYS"), to = "FREQUENTLY"), asbg03 = list(from = c("SOMETIMES","NEVER"), to = "INFREQUENTLY")))
+
+# Gap analysis
+gapResult4<-gap(variable = 'mmat', data = Trend2, asbgo3=="FREQUENTLY",asbg03=="INFREQUENTLY")
+
+gapResult4$results
+```
+
+
+In this vigenette, we show examples of trend analysis with respect to mean scores (achievement scores). The `EdSurvey`'s `gap`function also allows analyses with respect to achievement levels (benchmarks), percentiles, and percentages. Please see the [Gap Analysis ] (a link to EdSurvey Gap vignette section) for examples.
+
